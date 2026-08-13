@@ -1,0 +1,76 @@
+name: .NET CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    # Стъп 1: Checkout кода
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    
+    # Стъп 2: Инсталирай .NET SDK
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '8.0.x'
+    
+    # Стъп 3: Restore зависимостите
+    - name: Restore dependencies
+      run: dotnet restore
+      working-directory: ./SeleniumIDE
+    
+    # Стъп 4: Изгради проекта
+    - name: Build
+      run: dotnet build --no-restore --configuration Release
+      working-directory: ./SeleniumIDE
+    
+    # Стъп 5: Изпълни тестовете
+    - name: Run tests
+      run: dotnet test --no-build --verbosity normal --logger "console;verbosity=detailed" --configuration Release
+      working-directory: ./SeleniumIDE
+    
+    # Стъп 6: Публикувай резултатите (опционално)
+    - name: Upload test results
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: test-results
+        path: '**/TestResults/'
+        if-no-files-found: ignore
+    
+    # Стъп 7: Публикувай изграденото (опционално)
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: build-output
+        path: SeleniumIDE/bin/Release/net8.0/
+        if-no-files-found: ignore
+
+  # Допълнителен job за код анализа (опционално)
+  code-analysis:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '8.0.x'
+    
+    - name: Restore dependencies
+      run: dotnet restore
+      working-directory: ./SeleniumIDE
+    
+    - name: Analyze with StyleCop
+      run: dotnet build --no-restore /p:TreatWarningsAsErrors=true
+      working-directory: ./SeleniumIDE
+      continue-on-error: true
